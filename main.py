@@ -9,10 +9,8 @@ from modules.vector_store import VectorStoreManager
 from modules.retriever import AdvancedRetriever
 from modules.llm_handler import LLMHandler
 # -------------------------------------------------------------
-import sys
-import pysqlite3
-# 내장 sqlite3 모듈을 pysqlite3로 덮어쓰기
-sys.modules["sqlite3"] = pysqlite3
+# Using built-in sqlite3 instead of pysqlite3 to avoid import issues
+import sqlite3
 
 # --- 추가/수정된 부분 ---
 def main(rebuild_db: bool, until_step: str):
@@ -78,7 +76,33 @@ def main(rebuild_db: bool, until_step: str):
     adv_retriever = AdvancedRetriever(vectorstore)
     retriever = adv_retriever.get_retriever()
     if docs_for_retriever:
-        retriever.add_documents(docs_for_retriever)
+        # ChromaDB 배치 크기 제한을 피하기 위해 문서를 작은 배치로 나누어 처리
+        # ParentDocumentRetriever는 내부적으로 child chunks를 생성하므로 더 작은 배치 크기 사용
+        batch_size = 100  # 더 작은 배치 크기로 설정하여 child chunks 생성 시 한계 초과 방지
+        total_docs = len(docs_for_retriever)
+        print(f"INFO: 총 {total_docs}개 문서를 {batch_size}개씩 배치로 나누어 처리합니다.")
+        
+        for i in range(0, total_docs, batch_size):
+            batch_end = min(i + batch_size, total_docs)
+            batch_docs = docs_for_retriever[i:batch_end]
+            print(f"INFO: 배치 {i//batch_size + 1}: {len(batch_docs)}개 문서 처리 중...")
+            try:
+                retriever.add_documents(batch_docs)
+            except Exception as e:
+                print(f"WARNING: 배치 {i//batch_size + 1} 처리 중 오류 발생: {e}")
+                # 더 작은 배치로 재시도
+                smaller_batch_size = 10
+                print(f"INFO: 더 작은 배치 크기({smaller_batch_size})로 재시도합니다...")
+                for j in range(i, batch_end, smaller_batch_size):
+                    small_batch_end = min(j + smaller_batch_size, batch_end)
+                    small_batch_docs = docs_for_retriever[j:small_batch_end]
+                    try:
+                        retriever.add_documents(small_batch_docs)
+                        print(f"INFO: 소배치 {(j-i)//smaller_batch_size + 1} 처리 완료")
+                    except Exception as small_e:
+                        print(f"ERROR: 소배치 처리 실패: {small_e}")
+                        continue
+        
         print("INFO: ParentDocumentRetriever 설정 완료.")
     else:
         print("WARNING: 리트리버에 추가할 문서가 없습니다.")
