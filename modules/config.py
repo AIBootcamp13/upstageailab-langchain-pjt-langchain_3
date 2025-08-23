@@ -8,7 +8,7 @@ load_dotenv(os.path.join(project_root, '.env'))
 
 # API 키 설정 (이전과 동일)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-UPSTAGE_API_KEY = os.getenv("UPSTAGE_API_KEY", "up_Dk6s7ks9NNd7SOKtFAO5ltetPMge0")
+UPSTAGE_API_KEY = os.getenv("UPSTAGE_API_KEY")
 
 # --- 경로를 프로젝트 루트 기준으로 명확하게 수정 ---
 CRAWLED_DATA_DIR = os.path.join(project_root, "crawled_data")
