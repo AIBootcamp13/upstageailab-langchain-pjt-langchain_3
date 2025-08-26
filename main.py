@@ -10,6 +10,8 @@ from modules.retriever import AdvancedRetriever
 from modules.llm_handler import LLMHandler
 from langchain.storage import InMemoryStore # --- 추가된 부분 ---
 
+from modules.utils_docstore import register_parent_docs
+
 # --- 추가/수정된 부분 ---
 def main(rebuild_db: bool, until_step: str):
     """
@@ -54,7 +56,7 @@ def main(rebuild_db: bool, until_step: str):
 
     # --- 이하 코드는 until_step == 'run' 일 때만 실행됩니다. ---
     
-     # 3. 벡터 DB 구축 또는 로드
+    # 3. 벡터 DB 구축 또는 로드
     print("\n--- 3. 벡터 DB 준비 시작 ---")
     vs_manager = VectorStoreManager()
     
@@ -70,8 +72,7 @@ def main(rebuild_db: bool, until_step: str):
         # (InMemoryStore는 휘발성이므로 프로그램을 켤 때마다 채워야 함)
         vectorstore = vs_manager.load()
         parent_documents = vs_manager._load_documents_from_json(config.MERGED_PREPROCESSED_FILE)
-        doc_ids = [doc.metadata["doc_id"] for doc in parent_documents] # build시 저장했던 부모 문서의 메타 데이터에서 id를 가져온다 
-        docstore.mset(list(zip(doc_ids, parent_documents))) # docstore에 id-문서(value) 저장
+        register_parent_docs(docstore, parent_documents) # docstore에 부모 문서 저장
 
     if not vectorstore:
         print("CRITICAL: 벡터 DB 준비에 실패하여 프로그램을 종료합니다.")
